@@ -101,7 +101,7 @@ public class AsyncCheckUpdateQueue extends AsyncTask<Void, Void, Void> {
             //로컬 업데이트 정상
             callback.onLocalUpdateExist(mFilePath);
         } else {
-            callback.onLocalUpdateNonExist(mErrorCode);
+            callback.onLocalUpdateNonExist();
         }
         progressDialog.dismiss();
     }

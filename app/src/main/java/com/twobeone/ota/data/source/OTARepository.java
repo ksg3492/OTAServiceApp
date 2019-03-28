@@ -49,8 +49,8 @@ public class OTARepository {
         remoteDataSource.getAuthToken(callback);
     }
 
-    public void getFileInfo(String fileType, String filaName, String token, DownloadCallback callback) {
-        remoteDataSource.getFileInfo(fileType, filaName, token, callback);
+    public void getFileInfo(Context context, String fileType, String filaName, String token, DownloadCallback callback) {
+        remoteDataSource.getFileInfo(context, fileType, filaName, token, callback);
     }
 
     public void updateLog(String state, String fileName, String fileVersion) {

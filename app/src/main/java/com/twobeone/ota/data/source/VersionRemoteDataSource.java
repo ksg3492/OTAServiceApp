@@ -107,7 +107,7 @@ public class VersionRemoteDataSource {
         });
     }
 
-    public void getFileInfo(final String fileType, final String filaName, final String token, final DownloadCallback callback) {
+    public void getFileInfo(final Context context, final String fileType, final String filaName, final String token, final DownloadCallback callback) {
         Map<String, String> map = new HashMap<>();
         map.put("deviceSerial", Util.getUniqueId());
         map.put("fileName", filaName);
@@ -123,7 +123,7 @@ public class VersionRemoteDataSource {
                     if (domain != null) {
                         if ("0".equals(domain.getCode())) {
                             //성공
-                            getFileDownload(fileType, filaName, token, domain.getResult().get(0), callback);
+                            getFileDownload(context, fileType, filaName, token, domain.getResult().get(0), callback);
                         } else {
                             //실패
                             callback.onFail(DownloadCallback.TYPE_ERROR_TOKEN_ERROR);
@@ -156,7 +156,7 @@ public class VersionRemoteDataSource {
         return 0;
     }
 
-    private void getFileDownload(String fileType, String fileName, String token, final FileDomain.FileInfo info, final DownloadCallback callback) {
+    private void getFileDownload(final Context context, final String fileType, String fileName, String token, final FileDomain.FileInfo info, final DownloadCallback callback) {
         //디바이스 용량 체크
         if (getExternalAvailableMemory() > info.getFILE_SIZE()) {
             final String path = android.os.Environment.getExternalStorageDirectory() + AppConst.DIRECTORY_ROOT + fileType + "/" + info.getFILE_NAME();
@@ -185,9 +185,14 @@ public class VersionRemoteDataSource {
                         new AsyncTask<Void, Void, Void>() {
                             @Override
                             protected Void doInBackground(Void... voids) {
+                                //download info save
+                                OTARepository.getInstance().setSharedPreference(context, fileType, info);
+
                                 boolean success = writeResponseBodyToDisk(output, response.body(), callback);
+
+                                File file = new File(path);
+
                                 if (success) {
-                                    File file = new File(path);
                                     if (file.exists()) {
                                         callback.onMD5Check();
 
@@ -201,22 +206,24 @@ public class VersionRemoteDataSource {
                                                 !downloadMD5.equals("") && downloadMD5.equals(serverMD5)) {
                                             callback.onSuccess(path, info);
                                         } else {
+                                            try {
+                                                file.delete();
+                                            } catch (Exception e) {
+
+                                            }
+
+                                            OTARepository.getInstance().removeSharedPreference(context, fileType);
                                             callback.onFail(DownloadCallback.TYPE_ERROR_FILE_MD5_NOT_SAME);
                                         }
                                     } else {
+                                        OTARepository.getInstance().removeSharedPreference(context, fileType);
                                         callback.onFail(DownloadCallback.TYPE_ERROR_DOWNLOAD_FAIL);
                                     }
                                 } else {
-                                    if (GlobalStatus.isDownloadForceStop()) {
+                                    if (file.exists()) {
                                         callback.onPartialSuccess(path, info);
                                     } else {
-                                        try {
-                                            File f = new File(path);
-                                            if (f.exists()) {
-                                                f.delete();
-                                            }
-                                        } catch (Exception e) {
-                                        }
+                                        OTARepository.getInstance().removeSharedPreference(context, fileType);
                                         callback.onFail(DownloadCallback.TYPE_ERROR_DOWNLOAD_FAIL);
                                     }
                                 }
@@ -241,7 +248,7 @@ public class VersionRemoteDataSource {
     public void updateLog(String state, String fileName, String fileVersion) {
         Map<String, String> map = new HashMap<>();
         map.put("deviceSerial", Util.getUniqueId());
-        map.put("state", state);
+
         map.put("fileName", fileName);
         map.put("fileVersion", fileVersion);
 
@@ -313,7 +320,7 @@ public class VersionRemoteDataSource {
                     }
                 }
                 return true;
-            } catch (IOException e) {
+            } catch (Exception e) {
                 return false;
             } finally {
                 if (inputStream != null) {

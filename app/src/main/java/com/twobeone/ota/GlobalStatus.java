@@ -2,7 +2,6 @@ package com.twobeone.ota;
 
 public class GlobalStatus {
     private static boolean downloadForceStop = false;
-    private static boolean downloading = false;
 
     public static void init() {
         downloadForceStop = false;

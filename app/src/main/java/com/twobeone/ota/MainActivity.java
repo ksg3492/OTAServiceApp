@@ -150,8 +150,8 @@ public class MainActivity extends Activity {
                         }
 
                         @Override
-                        public void onLocalUpdateNonExist(int errorCode) {
-                            requestToken(AppConst.TYPE_QQMUSIC, errorCode);
+                        public void onLocalUpdateNonExist() {
+                            requestToken(AppConst.TYPE_QQMUSIC);
                         }
                     });
 
@@ -172,8 +172,8 @@ public class MainActivity extends Activity {
                         }
 
                         @Override
-                        public void onLocalUpdateNonExist(int errorCode) {
-                            requestToken(AppConst.TYPE_KAOLA, errorCode);
+                        public void onLocalUpdateNonExist() {
+                            requestToken(AppConst.TYPE_KAOLA);
                         }
                     });
 
@@ -185,23 +185,16 @@ public class MainActivity extends Activity {
         }
     };
 
-    private void requestToken(final String type, final int errorCode) {
-//        if (errorCode == UpdateQueueCallback.TYPE_ERROR_FILE_NEED_DOWNLOAD_CONTINUE) {
-//            //이어받기
-//        } else {
-//            //새로받기
-//        }
+    private void requestToken(final String type) {
+        GlobalStatus.setDownloadForceStop(false);
 
         OTARepository.getInstance().getAuthToken(new TokenCallback() {
             @Override
             public void onSuccess(String token) {
-                GlobalStatus.setDownloadForceStop(false);
                 if (AppConst.TYPE_QQMUSIC.equals(type)) {
-                    OTARepository.getInstance().getFileInfo(type, mQQMusicFileName, token, new DownloadCallback() {
+                    OTARepository.getInstance().getFileInfo(getApplicationContext(), type, mQQMusicFileName, token, new DownloadCallback() {
                         @Override
                         public void onSuccess(final String filePath, FileDomain.FileInfo info) {
-                            GlobalStatus.setDownloadForceStop(false);
-                            OTARepository.getInstance().setSharedPreference(getApplicationContext(), type, info);
                             Log.e("SG2","파일 다운로드 완료 : " + filePath);
 
                             new Handler(getBaseContext().getMainLooper()).post(new Runnable() {
@@ -222,8 +215,6 @@ public class MainActivity extends Activity {
                                     setProgressDialog(false);
                                 }
                             });
-                            GlobalStatus.setDownloadForceStop(false);
-                            OTARepository.getInstance().setSharedPreference(getApplicationContext(), type, info);
                             Log.e("SG2","파일 부분 다운로드 완료 : " + filePath);
                         }
 
@@ -257,21 +248,20 @@ public class MainActivity extends Activity {
                                     setProgressDialog(false);
                                 }
                             });
-                            GlobalStatus.setDownloadForceStop(false);
                             Log.e("SG2","파일 다운로드 실패 : " + errorType);
                             if (errorType == DownloadCallback.TYPE_ERROR_FILE_ERROR) {
-                                OTARepository.getInstance().removeSharedPreference(getApplicationContext(), type);
+                                Log.e("SG2","파일 다운로드 실패 : 파일 에러");
                             } else if (errorType == DownloadCallback.TYPE_ERROR_FILE_MD5_NOT_SAME) {
                                 Log.e("SG2","파일 다운로드 실패 : MD5 에러");
+                            } else if (errorType == DownloadCallback.TYPE_ERROR_STORAGE_FULL) {
+                                Log.e("SG2","파일 다운로드 실패 : 디바이스 용량부족");
                             }
                         }
                     });
                 } else if (AppConst.TYPE_KAOLA.equals(type)) {
-                    OTARepository.getInstance().getFileInfo(type, mKaolaFileName, token, new DownloadCallback() {
+                    OTARepository.getInstance().getFileInfo(getApplicationContext(), type, mKaolaFileName, token, new DownloadCallback() {
                         @Override
                         public void onSuccess(final String filePath, FileDomain.FileInfo info) {
-                            GlobalStatus.setDownloadForceStop(false);
-                            OTARepository.getInstance().setSharedPreference(getApplicationContext(), type, info);
                             Log.e("SG2","파일 다운로드 완료 : " + filePath);
 
                             new Handler(getBaseContext().getMainLooper()).post(new Runnable() {
@@ -292,8 +282,6 @@ public class MainActivity extends Activity {
                                     setProgressDialog(false);
                                 }
                             });
-                            GlobalStatus.setDownloadForceStop(false);
-                            OTARepository.getInstance().setSharedPreference(getApplicationContext(), type, info);
                             Log.e("SG2","파일 부분 다운로드 완료 : " + filePath);
                         }
 
@@ -327,11 +315,14 @@ public class MainActivity extends Activity {
                                     setProgressDialog(false);
                                 }
                             });
-                            GlobalStatus.setDownloadForceStop(false);
-                            if (errorType == DownloadCallback.TYPE_ERROR_FILE_ERROR) {
-                                OTARepository.getInstance().removeSharedPreference(getApplicationContext(), type);
-                            }
                             Log.e("SG2","파일 다운로드 실패 : " + errorType);
+                            if (errorType == DownloadCallback.TYPE_ERROR_FILE_ERROR) {
+                                Log.e("SG2","파일 다운로드 실패 : 파일 에러");
+                            } else if (errorType == DownloadCallback.TYPE_ERROR_FILE_MD5_NOT_SAME) {
+                                Log.e("SG2","파일 다운로드 실패 : MD5 에러");
+                            } else if (errorType == DownloadCallback.TYPE_ERROR_STORAGE_FULL) {
+                                Log.e("SG2","파일 다운로드 실패 : 디바이스 용량부족");
+                            }
                         }
                     });
                 }

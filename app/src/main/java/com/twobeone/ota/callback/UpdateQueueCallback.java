@@ -7,5 +7,5 @@ public interface UpdateQueueCallback {
 
     void onLocalUpdateExist(String filePath);
 
-    void onLocalUpdateNonExist(int errorCode);
+    void onLocalUpdateNonExist();
 }
