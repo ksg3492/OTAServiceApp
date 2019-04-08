@@ -27,9 +27,8 @@ import java.io.File;
 
 public class MainActivity extends Activity {
 
-    private AlertDialog checkDialog = null;
-    private AlertDialog choiceDialog = null;
-    private ProgressDialog mProgressDialog;
+    private AlertDialog mDownloadDialog = null;
+    private ProgressDialog mLoadingDialog;
 
     private OTARepository otaRepository = null;
 
@@ -99,10 +98,8 @@ public class MainActivity extends Activity {
         tv_qqmusic_update = (TextView) findViewById(R.id.tv_qqmusic_update);
         bt_kaola = (Button) findViewById(R.id.bt_kaola);
         tv_kaola_update = (TextView) findViewById(R.id.tv_kaola_update);
-        pb = (ProgressBar) findViewById(R.id.pb);
-        bt_stop = (Button) findViewById(R.id.bt_stop);
 
-        mProgressDialog = new ProgressDialog(MainActivity.this);
+        mLoadingDialog = new ProgressDialog(MainActivity.this);
     }
 
     private void setView() {
@@ -128,7 +125,6 @@ public class MainActivity extends Activity {
 
         bt_qqmusic.setOnClickListener(onClickListener);
         bt_kaola.setOnClickListener(onClickListener);
-        bt_stop.setOnClickListener(onClickListener);
     }
 
     private View.OnClickListener onClickListener = new View.OnClickListener() {
@@ -136,6 +132,7 @@ public class MainActivity extends Activity {
         public void onClick(View view) {
             switch (view.getId()) {
                 case R.id.bt_qqmusic:
+                    GlobalStatus.setCurrentUpdateType(AppConst.TYPE_QQMUSIC);
                     otaRepository = OTARepository.getInstance();
                     otaRepository.checkUpdateQueue(MainActivity.this, AppConst.TYPE_QQMUSIC, mVersionQQ, new UpdateQueueCallback() {
                         @Override
@@ -151,12 +148,17 @@ public class MainActivity extends Activity {
 
                         @Override
                         public void onLocalUpdateNonExist() {
+                            makeProgressDialog();
+                            if (mDownloadDialog != null && !mDownloadDialog.isShowing()) {
+                                mDownloadDialog.show();
+                            }
                             requestToken(AppConst.TYPE_QQMUSIC);
                         }
                     });
 
                     break;
                 case R.id.bt_kaola:
+                    GlobalStatus.setCurrentUpdateType(AppConst.TYPE_KAOLA);
                     otaRepository = OTARepository.getInstance();
                     otaRepository.checkUpdateQueue(getApplicationContext(), AppConst.TYPE_KAOLA, mVersionKaola, new UpdateQueueCallback() {
                         @Override
@@ -173,20 +175,42 @@ public class MainActivity extends Activity {
 
                         @Override
                         public void onLocalUpdateNonExist() {
+                            makeProgressDialog();
+                            if (mDownloadDialog != null && !mDownloadDialog.isShowing()) {
+                                mDownloadDialog.show();
+                            }
                             requestToken(AppConst.TYPE_KAOLA);
                         }
                     });
 
                     break;
                 case R.id.bt_stop:
-                    GlobalStatus.setDownloadForceStop(true);
+                    if (!GlobalStatus.isDownloadForceStop()) {
+                        GlobalStatus.setDownloadForceStop(true);
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                bt_stop.setText("다운로드 재개");
+                            }
+                        });
+                        break;
+                    } else if (GlobalStatus.isDownloadForceStop()) {
+                        GlobalStatus.setDownloadForceStop(false);
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                bt_stop.setText("다운로드 중지");
+                            }
+                        });
+                        requestToken(GlobalStatus.getCurrentUpdateType());
+                    }
                     break;
             }
         }
     };
 
     private void requestToken(final String type) {
-        GlobalStatus.setDownloadForceStop(false);
+//        GlobalStatus.setDownloadForceStop(false);
 
         OTARepository.getInstance().getAuthToken(new TokenCallback() {
             @Override
@@ -195,6 +219,8 @@ public class MainActivity extends Activity {
                     OTARepository.getInstance().getFileInfo(getApplicationContext(), type, mQQMusicFileName, token, new DownloadCallback() {
                         @Override
                         public void onSuccess(final String filePath, FileDomain.FileInfo info) {
+                            GlobalStatus.setDownloadForceStop(false);
+
                             Log.e("SG2","파일 다운로드 완료 : " + filePath);
 
                             new Handler(getBaseContext().getMainLooper()).post(new Runnable() {
@@ -202,7 +228,10 @@ public class MainActivity extends Activity {
                                 public void run() {
                                     pb.setProgress(0);
                                     showInstallDialog(type, filePath);
-                                    setProgressDialog(false);
+                                    showLoadingDialog(false);
+                                    if (mDownloadDialog != null && mDownloadDialog.isShowing()) {
+                                        mDownloadDialog.dismiss();
+                                    }
                                 }
                             });
                         }
@@ -212,7 +241,7 @@ public class MainActivity extends Activity {
                             runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
-                                    setProgressDialog(false);
+                                    showLoadingDialog(false);
                                 }
                             });
                             Log.e("SG2","파일 부분 다운로드 완료 : " + filePath);
@@ -223,7 +252,10 @@ public class MainActivity extends Activity {
                             runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
-                                    setProgressDialog(true);
+                                    if (mDownloadDialog != null && mDownloadDialog.isShowing()) {
+                                        mDownloadDialog.dismiss();
+                                    }
+                                    showLoadingDialog(true);
                                 }
                             });
                             Log.e("SG2","MD5 확인 중...");
@@ -245,9 +277,13 @@ public class MainActivity extends Activity {
                             runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
-                                    setProgressDialog(false);
+                                    if (mDownloadDialog != null && mDownloadDialog.isShowing()) {
+                                        mDownloadDialog.dismiss();
+                                    }
+                                    showLoadingDialog(false);
                                 }
                             });
+                            GlobalStatus.setDownloadForceStop(false);
                             Log.e("SG2","파일 다운로드 실패 : " + errorType);
                             if (errorType == DownloadCallback.TYPE_ERROR_FILE_ERROR) {
                                 Log.e("SG2","파일 다운로드 실패 : 파일 에러");
@@ -262,6 +298,7 @@ public class MainActivity extends Activity {
                     OTARepository.getInstance().getFileInfo(getApplicationContext(), type, mKaolaFileName, token, new DownloadCallback() {
                         @Override
                         public void onSuccess(final String filePath, FileDomain.FileInfo info) {
+                            GlobalStatus.setDownloadForceStop(false);
                             Log.e("SG2","파일 다운로드 완료 : " + filePath);
 
                             new Handler(getBaseContext().getMainLooper()).post(new Runnable() {
@@ -269,7 +306,7 @@ public class MainActivity extends Activity {
                                 public void run() {
                                     pb.setProgress(0);
                                     showInstallDialog(type, filePath);
-                                    setProgressDialog(false);
+                                    showLoadingDialog(false);
                                 }
                             });
                         }
@@ -279,7 +316,7 @@ public class MainActivity extends Activity {
                             runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
-                                    setProgressDialog(false);
+                                    showLoadingDialog(false);
                                 }
                             });
                             Log.e("SG2","파일 부분 다운로드 완료 : " + filePath);
@@ -290,7 +327,10 @@ public class MainActivity extends Activity {
                             runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
-                                    setProgressDialog(true);
+                                    if (mDownloadDialog != null && mDownloadDialog.isShowing()) {
+                                        mDownloadDialog.dismiss();
+                                    }
+                                    showLoadingDialog(true);
                                 }
                             });
                             Log.e("SG2","MD5 확인 중...");
@@ -312,9 +352,13 @@ public class MainActivity extends Activity {
                             runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
-                                    setProgressDialog(false);
+                                    showLoadingDialog(false);
+                                    if (mDownloadDialog != null && mDownloadDialog.isShowing()) {
+                                        mDownloadDialog.dismiss();
+                                    }
                                 }
                             });
+                            GlobalStatus.setDownloadForceStop(false);
                             Log.e("SG2","파일 다운로드 실패 : " + errorType);
                             if (errorType == DownloadCallback.TYPE_ERROR_FILE_ERROR) {
                                 Log.e("SG2","파일 다운로드 실패 : 파일 에러");
@@ -379,6 +423,20 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void makeProgressDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+        CustomProgress customProgress = new CustomProgress(context);
+        pb = (ProgressBar) customProgress.findViewById(R.id.pb);
+        bt_stop = (Button) customProgress.findViewById(R.id.bt_stop);
+
+        bt_stop.setOnClickListener(onClickListener);
+        builder.setTitle("업데이트");
+        builder.setCancelable(false);
+        builder.setView(customProgress);
+
+        mDownloadDialog = builder.create();
+    }
+
     private void showInstallDialog (final String type, final String filePath) { // 다운완료 후 설치 다이얼로그
         AlertDialog.Builder installDialog = new AlertDialog.Builder(this);
         installDialog.setMessage("다운로드가 완료 되었습니다.\n지금 설치하시겠습니까?");
@@ -399,16 +457,16 @@ public class MainActivity extends Activity {
         installDialog.show();
     }
 
-    private void setProgressDialog (boolean isShowProgressDialog) { // MD5 체크 들어가기전 후 프로그래스 다이얼로그
-        if (mProgressDialog != null) {
+    private void showLoadingDialog(boolean isShowProgressDialog) { // MD5 체크 들어가기전 후 프로그래스 다이얼로그
+        if (mLoadingDialog != null) {
             if (isShowProgressDialog) {
-                mProgressDialog.setMessage("확인중..");
-                mProgressDialog.setCancelable(false);
-                mProgressDialog.setCanceledOnTouchOutside(false);
-                mProgressDialog.show();
+                mLoadingDialog.setMessage("확인중..");
+                mLoadingDialog.setCancelable(false);
+                mLoadingDialog.setCanceledOnTouchOutside(false);
+                mLoadingDialog.show();
             } else {
-                if(mProgressDialog.isShowing()) {
-                    mProgressDialog.dismiss();
+                if(mLoadingDialog.isShowing()) {
+                    mLoadingDialog.dismiss();
                 }
             }
         }

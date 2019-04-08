@@ -15,6 +15,20 @@ public class Util {
 
     public static String getUniqueId() {
         return "test1";
+//        String iemi = ((TelephonyManager) MainActivity.context.getSystemService(Context.TELEPHONY_SERVICE)).getDeviceId();
+//        Log.e("kjw33", "iemi : " + iemi);
+//        String serial = Build.SERIAL;
+//        Log.e("kjw33", "serial : " + serial);
+//        String idByANDROID_ID = Settings.Secure.getString(MainActivity.context.getContentResolver(), Settings.Secure.ANDROID_ID);
+//        Log.e("kjw33", "android id : " + idByANDROID_ID);
+
+//        if (iemi != null)
+//            return iemi;
+
+//        if (serial != null)
+//            return serial;
+//
+//        return null;
 //        return UUID.randomUUID().toString();
     }
 
